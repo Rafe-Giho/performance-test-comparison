@@ -1,0 +1,24 @@
+services:
+  jmeter-runner:
+    build:
+      context: .
+      args:
+        JMETER_VERSION: ${JMETER_VERSION:-5.6.3}
+    image: custom/jmeter-runner:${JMETER_VERSION:-5.6.3}
+    environment:
+      PLAN_PATH: /workspace/plans/${PLAN_FILE:-web-standard-template.jmx}
+      REPORT_BASE: /workspace/reports/${REPORT_SUBDIR:-container-runner}
+      RESULT_PREFIX: ${RESULT_PREFIX:-jmeter}
+      PROTOCOL: ${PROTOCOL:-https}
+      HOST: ${HOST:-example.com}
+      PORT: ${PORT:-443}
+      THREADS: ${THREADS:-10}
+      RAMP_UP: ${RAMP_UP:-30}
+      LOOPS: ${LOOPS:-1}
+      THINK_TIME_MS: ${THINK_TIME_MS:-1000}
+      USERNAME: ${USERNAME:-user01}
+      PASSWORD: ${PASSWORD:-pass01}
+    volumes:
+      - ../../plans:/workspace/plans
+      - ../../data:/workspace/data
+      - ../../reports:/workspace/reports

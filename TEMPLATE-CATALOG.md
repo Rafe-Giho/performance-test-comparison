@@ -24,6 +24,7 @@
 | `Jmeter/scripts/run-local.ps1` | 단일 노드 실행 | 대상 URL과 스레드 수만 인자로 조정 |
 | `Jmeter/scripts/run-distributed.ps1` | 다중 엔진 실행 | 원격 엔진 주소와 부하 수치만 조정 |
 | `Jmeter/scripts/generate-report.ps1` | HTML Dashboard 생성 | JTL 경로만 변경 |
+| `Jmeter/infra/docker-runner/docker-compose.yml` | 실행 러너 컨테이너 | `.env`로 대상 URL과 부하 수치만 변경 |
 
 ## nGrinder 템플릿
 

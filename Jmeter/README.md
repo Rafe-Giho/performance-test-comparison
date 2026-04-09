@@ -25,6 +25,8 @@
 - `scripts/run-local.ps1`
 - `scripts/run-distributed.ps1`
 - `scripts/generate-report.ps1`
+- `infra/docker-runner/docker-compose.yml`
+- `infra/docker-runner/Dockerfile`
 
 ## 먼저 읽을 문서
 
