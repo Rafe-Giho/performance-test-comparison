@@ -1,0 +1,23 @@
+services:
+  controller:
+    image: ngrinder/controller:3.5.9-p1
+    container_name: ngrinder-controller
+    hostname: controller
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+      - "16001:16001"
+      - "12000-12009:12000-12009"
+    volumes:
+      - ./volumes/controller:/opt/ngrinder-controller
+
+  agent:
+    image: ngrinder/agent:3.5.9-p1
+    restart: unless-stopped
+    links:
+      - controller:controller
+    depends_on:
+      - controller
+    volumes:
+      - ./volumes/agent:/opt/ngrinder-agent
+
