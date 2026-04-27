@@ -1,20 +1,111 @@
 param(
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ProjectName,
+
     [string]$JMeterHome = "C:\tools\apache-jmeter-5.6.3",
     [string]$PlanPath = "..\plans\web-standard-template.jmx",
-    [string]$OutputDir = "..\reports\sample-local",
-    [string]$Protocol = "https",
-    [string]$Host = "example.com",
-    [int]$Port = 443,
-    [int]$Threads = 10,
-    [int]$RampUp = 30,
-    [int]$Loops = 1,
-    [int]$ThinkTimeMs = 1000,
-    [string]$Username = "user01",
-    [string]$Password = "pass01"
+    [string]$OutputDir,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateSet("http", "https")]
+    [string]$Protocol,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Host,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, 65535)]
+    [int]$Port,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, 2147483647)]
+    [int]$Threads,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(0, 2147483647)]
+    [int]$RampUp,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(1, 2147483647)]
+    [int]$Loops,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateRange(0, 2147483647)]
+    [int]$ThinkTimeMs,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$HealthPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$LoginPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$ListPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$DetailPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$EventPath,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$EventPayload,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Username,
+
+    [Parameter(Mandatory = $true)]
+    [ValidateNotNullOrEmpty()]
+    [string]$Password
 )
 
-$jmeterExe = Join-Path $JMeterHome "bin\jmeter.bat"
-$resolvedPlan = Resolve-Path $PlanPath
+function Resolve-JMeterExecutable {
+    param([string]$Home)
+
+    $candidates = @(
+        (Join-Path $Home "bin\jmeter.bat"),
+        (Join-Path $Home "bin\jmeter"),
+        "jmeter.bat",
+        "jmeter"
+    )
+
+    foreach ($candidate in $candidates) {
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) {
+            return (Resolve-Path -LiteralPath $candidate).Path
+        }
+
+        $command = Get-Command $candidate -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) {
+            return $command.Source
+        }
+    }
+
+    throw "JMeter executable not found. Checked JMeterHome and PATH: $Home"
+}
+
+$jmeterExe = Resolve-JMeterExecutable -Home $JMeterHome
+
+if (-not [System.IO.Path]::IsPathRooted($PlanPath)) {
+    $PlanPath = Join-Path $PSScriptRoot $PlanPath
+}
+
+$resolvedPlan = Resolve-Path -LiteralPath $PlanPath
+
+if (-not $OutputDir) {
+    $OutputDir = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) "reports\$ProjectName") (Get-Date -Format "yyyyMMdd")
+} elseif (-not [System.IO.Path]::IsPathRooted($OutputDir)) {
+    $OutputDir = Join-Path $PSScriptRoot $OutputDir
+}
+
 $resolvedOutput = Resolve-Path -LiteralPath $OutputDir -ErrorAction SilentlyContinue
 if (-not $resolvedOutput) {
     New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
@@ -25,25 +116,45 @@ $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $resultFile = Join-Path $resolvedOutput "result-$timestamp.jtl"
 $htmlDir = Join-Path $resolvedOutput "html-$timestamp"
 
-if (-not (Test-Path $jmeterExe)) {
-    throw "JMeter executable not found: $jmeterExe"
+foreach ($pathValue in @($HealthPath, $LoginPath, $ListPath, $DetailPath, $EventPath)) {
+    if (-not $pathValue.StartsWith("/")) {
+        throw "HTTP path must start with '/': $pathValue"
+    }
 }
 
-& $jmeterExe `
-  -n `
-  -t $resolvedPlan `
-  -l $resultFile `
-  -e `
-  -o $htmlDir `
-  -JPROTOCOL=$Protocol `
-  -JHOST=$Host `
-  -JPORT=$Port `
-  -JTHREADS=$Threads `
-  -JRAMP_UP=$RampUp `
-  -JLOOPS=$Loops `
-  -JTHINK_TIME_MS=$ThinkTimeMs `
-  -JUSERNAME=$Username `
-  -JPASSWORD=$Password
+try {
+    $null = $EventPayload | ConvertFrom-Json -ErrorAction Stop
+} catch {
+    throw "EventPayload must be valid JSON: $($_.Exception.Message)"
+}
+
+$jmeterArgs = @(
+    "-n",
+    "-t", $resolvedPlan.Path,
+    "-l", $resultFile,
+    "-e",
+    "-o", $htmlDir,
+    "-JPROTOCOL=$Protocol",
+    "-JHOST=$Host",
+    "-JPORT=$Port",
+    "-JTHREADS=$Threads",
+    "-JRAMP_UP=$RampUp",
+    "-JLOOPS=$Loops",
+    "-JTHINK_TIME_MS=$ThinkTimeMs",
+    "-JHEALTH_PATH=$HealthPath",
+    "-JLOGIN_PATH=$LoginPath",
+    "-JLIST_PATH=$ListPath",
+    "-JDETAIL_PATH=$DetailPath",
+    "-JUSERNAME=$Username",
+    "-JPASSWORD=$Password",
+    "-JEVENT_PATH=$EventPath",
+    "-JEVENT_PAYLOAD=$EventPayload"
+)
+
+& $jmeterExe @jmeterArgs
+if ($LASTEXITCODE -ne 0) {
+    throw "JMeter execution failed with exit code $LASTEXITCODE"
+}
 
 Write-Host "JTL  : $resultFile"
 Write-Host "HTML : $htmlDir"

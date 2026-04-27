@@ -10,12 +10,12 @@
         <collectionProp name="Arguments.arguments">
           <elementProp name="PROTOCOL" elementType="Argument">
             <stringProp name="Argument.name">PROTOCOL</stringProp>
-            <stringProp name="Argument.value">https</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="HOST" elementType="Argument">
             <stringProp name="Argument.name">HOST</stringProp>
-            <stringProp name="Argument.value">example.com</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="PORT" elementType="Argument">
@@ -25,32 +25,42 @@
           </elementProp>
           <elementProp name="HEALTH_PATH" elementType="Argument">
             <stringProp name="Argument.name">HEALTH_PATH</stringProp>
-            <stringProp name="Argument.value">/health</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="LOGIN_PATH" elementType="Argument">
             <stringProp name="Argument.name">LOGIN_PATH</stringProp>
-            <stringProp name="Argument.value">/api/login</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="LIST_PATH" elementType="Argument">
             <stringProp name="Argument.name">LIST_PATH</stringProp>
-            <stringProp name="Argument.value">/api/items</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="DETAIL_PATH" elementType="Argument">
             <stringProp name="Argument.name">DETAIL_PATH</stringProp>
-            <stringProp name="Argument.value">/api/items/1</stringProp>
+            <stringProp name="Argument.value"></stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="EVENT_PATH" elementType="Argument">
+            <stringProp name="Argument.name">EVENT_PATH</stringProp>
+            <stringProp name="Argument.value"></stringProp>
+            <stringProp name="Argument.metadata">=</stringProp>
+          </elementProp>
+          <elementProp name="EVENT_PAYLOAD" elementType="Argument">
+            <stringProp name="Argument.name">EVENT_PAYLOAD</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="USERNAME" elementType="Argument">
             <stringProp name="Argument.name">USERNAME</stringProp>
-            <stringProp name="Argument.value">user01</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
           <elementProp name="PASSWORD" elementType="Argument">
             <stringProp name="Argument.name">PASSWORD</stringProp>
-            <stringProp name="Argument.value">pass01</stringProp>
+            <stringProp name="Argument.value"></stringProp>
             <stringProp name="Argument.metadata">=</stringProp>
           </elementProp>
         </collectionProp>
@@ -59,9 +69,9 @@
     </TestPlan>
     <hashTree>
       <ConfigTestElement guiclass="HttpDefaultsGui" testclass="ConfigTestElement" testname="HTTP Request Defaults" enabled="true">
-        <stringProp name="HTTPSampler.protocol">${__P(PROTOCOL,https)}</stringProp>
-        <stringProp name="HTTPSampler.domain">${__P(HOST,example.com)}</stringProp>
-        <stringProp name="HTTPSampler.port">${__P(PORT,443)}</stringProp>
+        <stringProp name="HTTPSampler.protocol">${__P(PROTOCOL,)}</stringProp>
+        <stringProp name="HTTPSampler.domain">${__P(HOST,)}</stringProp>
+        <stringProp name="HTTPSampler.port">${__P(PORT,)}</stringProp>
         <stringProp name="HTTPSampler.contentEncoding">UTF-8</stringProp>
         <stringProp name="HTTPSampler.path"></stringProp>
       </ConfigTestElement>
@@ -89,10 +99,10 @@
         <stringProp name="ThreadGroup.on_sample_error">continue</stringProp>
         <elementProp name="ThreadGroup.main_controller" elementType="LoopController" guiclass="LoopControlPanel" testclass="LoopController" testname="Loop Controller" enabled="true">
           <boolProp name="LoopController.continue_forever">false</boolProp>
-          <stringProp name="LoopController.loops">${__P(LOOPS,1)}</stringProp>
+          <stringProp name="LoopController.loops">${__P(LOOPS,)}</stringProp>
         </elementProp>
-        <stringProp name="ThreadGroup.num_threads">${__P(THREADS,10)}</stringProp>
-        <stringProp name="ThreadGroup.ramp_time">${__P(RAMP_UP,30)}</stringProp>
+        <stringProp name="ThreadGroup.num_threads">${__P(THREADS,)}</stringProp>
+        <stringProp name="ThreadGroup.ramp_time">${__P(RAMP_UP,)}</stringProp>
         <boolProp name="ThreadGroup.scheduler">false</boolProp>
       </ThreadGroup>
       <hashTree>
@@ -100,7 +110,7 @@
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.path">${__P(HEALTH_PATH,/health)}</stringProp>
+          <stringProp name="HTTPSampler.path">${__P(HEALTH_PATH,)}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
@@ -112,12 +122,12 @@
             <collectionProp name="Arguments.arguments">
               <elementProp name="" elementType="HTTPArgument">
                 <boolProp name="HTTPArgument.always_encode">false</boolProp>
-                <stringProp name="Argument.value">{&quot;username&quot;:&quot;${__P(USERNAME,user01)}&quot;,&quot;password&quot;:&quot;${__P(PASSWORD,pass01)}&quot;}</stringProp>
+                <stringProp name="Argument.value">{&quot;username&quot;:&quot;${__P(USERNAME,)}&quot;,&quot;password&quot;:&quot;${__P(PASSWORD,)}&quot;}</stringProp>
                 <stringProp name="Argument.metadata">=</stringProp>
               </elementProp>
             </collectionProp>
           </elementProp>
-          <stringProp name="HTTPSampler.path">${__P(LOGIN_PATH,/api/login)}</stringProp>
+          <stringProp name="HTTPSampler.path">${__P(LOGIN_PATH,)}</stringProp>
           <stringProp name="HTTPSampler.method">POST</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
@@ -127,7 +137,7 @@
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.path">${__P(LIST_PATH,/api/items)}</stringProp>
+          <stringProp name="HTTPSampler.path">${__P(LIST_PATH,)}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
@@ -137,14 +147,31 @@
           <elementProp name="HTTPsampler.Arguments" elementType="Arguments" guiclass="HTTPArgumentsPanel" testclass="Arguments" testname="User Defined Variables" enabled="true">
             <collectionProp name="Arguments.arguments"/>
           </elementProp>
-          <stringProp name="HTTPSampler.path">${__P(DETAIL_PATH,/api/items/1)}</stringProp>
+          <stringProp name="HTTPSampler.path">${__P(DETAIL_PATH,)}</stringProp>
           <stringProp name="HTTPSampler.method">GET</stringProp>
           <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
           <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
         </HTTPSamplerProxy>
         <hashTree/>
+        <HTTPSamplerProxy guiclass="HttpTestSampleGui" testclass="HTTPSamplerProxy" testname="05-Event" enabled="true">
+          <boolProp name="HTTPSampler.postBodyRaw">true</boolProp>
+          <elementProp name="HTTPsampler.Arguments" elementType="Arguments">
+            <collectionProp name="Arguments.arguments">
+              <elementProp name="" elementType="HTTPArgument">
+                <boolProp name="HTTPArgument.always_encode">false</boolProp>
+                <stringProp name="Argument.value">${__P(EVENT_PAYLOAD,)}</stringProp>
+                <stringProp name="Argument.metadata">=</stringProp>
+              </elementProp>
+            </collectionProp>
+          </elementProp>
+          <stringProp name="HTTPSampler.path">${__P(EVENT_PATH,)}</stringProp>
+          <stringProp name="HTTPSampler.method">POST</stringProp>
+          <boolProp name="HTTPSampler.follow_redirects">true</boolProp>
+          <boolProp name="HTTPSampler.use_keepalive">true</boolProp>
+        </HTTPSamplerProxy>
+        <hashTree/>
         <ConstantTimer guiclass="ConstantTimerGui" testclass="ConstantTimer" testname="Think Time" enabled="true">
-          <stringProp name="ConstantTimer.delay">${__P(THINK_TIME_MS,1000)}</stringProp>
+          <stringProp name="ConstantTimer.delay">${__P(THINK_TIME_MS,)}</stringProp>
         </ConstantTimer>
         <hashTree/>
       </hashTree>

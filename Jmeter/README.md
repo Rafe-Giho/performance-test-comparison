@@ -2,11 +2,23 @@
 
 이 폴더는 `JMeter` 기반 부하테스트 자산을 관리한다.
 
+## 문서 등급
+
+문서 등급: 팀 배포용 표준 운영 가이드
+
+## 운영 환경
+
+운영 환경: 클라우드 기반 테스트 환경
+
+이 문서의 구축, 실행, 검증 기준은 클라우드 기반 테스트 환경을 전제로 한다. 테스트 인프라는 프로젝트별 클라우드 VM, 컨테이너, Kubernetes/NKS 자원으로 구성하고 운영 서비스와 논리적으로 분리한다.
+
 ## 역할
 
 - 조직 공통 표준 도구
 - 공공기관 대상 기본 웹서비스 테스트
 - WEB-WAS-DB형 IaaS 프로젝트
+- 클라우드 VM 기반 제어/작성 노드와 엔진 노드 분산 실행
+- private subnet, security group, bastion/VPN을 쓰는 폐쇄형 테스트망 운영
 - 혼합 프로토콜 테스트
 - 범용 표준 가이드와 템플릿의 기준 도구
 - `VM 또는 인스턴스 직접 설치`를 기본으로 쓰는 도구
@@ -34,11 +46,19 @@
 1. [SETUP-GUIDE.md](./SETUP-GUIDE.md)
 2. [TEST-GUIDE.md](./TEST-GUIDE.md)
 
-## 표준 포지션
+## 운영 포지션
 
 - 기본 선택: `예`
 - 전략 특화: `아님`
 - 장기 유지보수: `적합`
+
+## 배포 전 확인
+
+- [SETUP-GUIDE.md](./SETUP-GUIDE.md)의 구축 완료 기준을 만족한다.
+- [TEST-GUIDE.md](./TEST-GUIDE.md)의 smoke 실행과 결과 산출물 기준을 만족한다.
+- 클라우드 VPC/subnet/security group에서 제어 노드, 엔진 노드, 대상 시스템 간 네트워크 경로가 확인됐다.
+- 분산 실행 시 `RemoteHosts`는 엔진 노드의 private IP 또는 private DNS를 사용한다.
+- `powershell -ExecutionPolicy Bypass -File ..\tools\validate-workspace.ps1 -Strict`가 통과한다.
 
 ## 기초 용어
 
