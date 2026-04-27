@@ -2,6 +2,18 @@
 
 이 폴더는 `JMeter`, `nGrinder`, `k6`의 구축, 테스트 스크립트, 배포 파일, 결과 보고서를 함께 관리하는 기준 저장소다.
 
+## 문서 등급
+
+문서 등급: 팀 배포용 표준 운영 가이드
+
+## 운영 환경
+
+운영 환경: 클라우드 기반 테스트 환경
+
+이 문서의 구축, 실행, 검증 기준은 클라우드 기반 테스트 환경을 전제로 한다. 테스트 인프라는 프로젝트별 클라우드 VM, 컨테이너, Kubernetes/NKS 자원으로 구성하고 운영 서비스와 논리적으로 분리한다.
+
+문서 품질 기준은 [DOCUMENT-STANDARD.md](./DOCUMENT-STANDARD.md)를 따른다. 팀 배포 전에는 `tools/validate-workspace.ps1 -Strict`가 통과해야 한다.
+
 ## 표준 운영 원칙
 
 - 공통 표준 도구: `JMeter`
@@ -58,15 +70,26 @@
 1. 프로젝트 시작 시 먼저 [STANDARD-LOADTEST-GUIDE.md](./STANDARD-LOADTEST-GUIDE.md)를 읽고 도구를 고른다.
 2. 기본 준비 상태와 남은 작업은 [PREP-CHECKLIST.md](./PREP-CHECKLIST.md)에서 먼저 확인한다.
 3. 범용 템플릿 목록은 [TEMPLATE-CATALOG.md](./TEMPLATE-CATALOG.md)에서 확인한다.
-4. 선택한 도구 폴더에서 `SETUP-GUIDE.md`로 환경을 만들고 `TEST-GUIDE.md`로 실행 절차를 따른다.
-5. 새 프로젝트는 기존 템플릿을 복제해서 시작하고, 공통화 가능한 수정은 다시 템플릿에 환류한다.
-6. 테스트 산출물은 각 도구 폴더의 `reports/`에 프로젝트명과 날짜 기준으로 정리한다.
-7. 실제 배포 파일, Compose, YAML, 스크립트는 각 도구의 `infra/`, `scripts/`, `plans/`, `scenarios/`에 넣는다.
-8. 버전은 반드시 고정한다. 실제 구현 시점의 도구 버전과 Java 버전, 이미지 태그를 배포 파일에 명시한다.
+4. 문서/자산 정합성은 [OPERATIONS-HARNESS.md](./OPERATIONS-HARNESS.md)의 하네스로 점검한다.
+5. 선택한 도구 폴더에서 `SETUP-GUIDE.md`로 환경을 만들고 `TEST-GUIDE.md`로 실행 절차를 따른다.
+6. 새 프로젝트는 기존 템플릿을 복제해서 시작하고, 공통화 가능한 수정은 다시 템플릿에 환류한다.
+7. 테스트 산출물은 각 도구 폴더의 `reports/`에 프로젝트명과 날짜 기준으로 정리한다.
+8. 실제 배포 파일, Compose, YAML, 스크립트는 각 도구의 `infra/`, `scripts/`, `plans/`, `scenarios/`에 넣는다.
+9. 버전은 반드시 고정한다. 실제 구현 시점의 도구 버전과 Java 버전, 이미지 태그를 배포 파일에 명시한다.
 
 ## 현재 준비 상태
 
-이 저장소는 `바로 실행 가능한 표준 초안`까지는 준비되어 있다. 다만 실제 프로젝트에 투입하려면 아래 항목은 반드시 각 환경에 맞게 채워야 한다.
+이 저장소는 `실제 환경값을 주입해야 실행되는 표준 자산`으로 구성되어 있다. 세 도구는 같은 수준으로 검증된 것이 아니므로, 현재 검증 수준을 아래처럼 구분한다.
+
+| 도구 | 현재 검증 수준 | 아직 프로젝트별로 해야 할 일 |
+| --- | --- | --- |
+| JMeter | 클라우드 VM/분산 운영 기준 문서, 표준 `.jmx`, 실행 스크립트, Docker runner 자산, 하네스 검증 완료 | 실제 VM에 Java/JMeter 설치, 단일/분산 smoke, 실제 대상 부하 실행 |
+| k6 | NKS에서 k6 Operator `4.3.2` 설치, CRD 확인, no-op `TestRun` 실행, server dry-run, 적용 스크립트 dry-run 검증 완료 | 실제 `BASE_URL`, Secret, 경로, payload로 API/browser smoke와 본시험 실행 |
+| nGrinder | Docker Desktop에서 `ngrinder/controller:3.5.9-p1`, `ngrinder/agent:3.5.9-p1` Compose 기동, Controller HTTP `200`, Agent 연결 로그 확인 완료 | 클라우드 VM 배포, Controller UI smoke, 실제 대상 부하 실행 |
+
+검증에 사용한 런타임 자원은 정리했다. Docker 컨테이너, Compose 프로젝트, k6 Helm 릴리스, k6 테스트 네임스페이스는 남겨 두지 않는다.
+
+실제 프로젝트 투입 전 아래 항목은 반드시 실제 값으로 채워야 한다.
 
 - 대상 URL, 계정, 인증 방식
 - 테스트 대상별 시나리오와 비율
@@ -74,7 +97,7 @@
 - 모니터링 대상과 결과 저장 위치
 - smoke test 1회 이상 실행 결과
 
-즉, `문서`, `샘플 스크립트`, `배포 초안`, `템플릿 구조`는 준비되어 있고, `프로젝트별 환경값 주입`과 `실행 검증`은 아직 사용자 환경에서 마무리해야 한다.
+즉, `문서`, `표준 스크립트`, `배포 자산`, `템플릿 구조`는 임시 기본값 없이 관리하고, `프로젝트별 환경값 주입`과 `실행 검증`은 실제 대상 환경에서 수행한다.
 
 ## 템플릿 운영 원칙
 

@@ -1,6 +1,16 @@
 # 기본 준비 체크리스트
 
-이 문서는 현재 저장소가 `표준 초안 기준으로 어디까지 준비됐는지`와 `실제 프로젝트 시작 전에 무엇을 더 채워야 하는지`를 빠르게 확인하기 위한 체크리스트다.
+## 문서 등급
+
+문서 등급: 팀 배포용 표준 운영 가이드
+
+## 운영 환경
+
+운영 환경: 클라우드 기반 테스트 환경
+
+이 문서의 구축, 실행, 검증 기준은 클라우드 기반 테스트 환경을 전제로 한다. 테스트 인프라는 프로젝트별 클라우드 VM, 컨테이너, Kubernetes/NKS 자원으로 구성하고 운영 서비스와 논리적으로 분리한다.
+
+이 문서는 현재 저장소가 `표준 준비 기준으로 어디까지 준비됐는지`와 `실제 프로젝트 시작 전에 무엇을 더 채워야 하는지`를 빠르게 확인하기 위한 체크리스트다.
 
 ## 지금 준비된 것
 
@@ -8,14 +18,22 @@
 | --- | --- | --- |
 | 표준 선택 문서 | 준비됨 | `STANDARD-LOADTEST-GUIDE.md` |
 | 범용 템플릿 목록 | 준비됨 | `TEMPLATE-CATALOG.md` |
-| JMeter 기본 가이드 | 준비됨 | `README`, `SETUP-GUIDE`, `TEST-GUIDE`, 샘플 `.jmx`, 실행 스크립트 |
-| JMeter 실행 러너 컨테이너 | 준비됨 | 부가 방식으로만 사용 |
-| nGrinder 기본 가이드 | 준비됨 | `README`, `SETUP-GUIDE`, `TEST-GUIDE`, Compose, 샘플 스크립트 |
-| k6 기본 가이드 | 준비됨 | `README`, `SETUP-GUIDE`, `TEST-GUIDE`, VM/NKS 샘플 자산 |
+| JMeter 기본 가이드 | 표준화 완료 | `README`, `SETUP-GUIDE`, `TEST-GUIDE`, 표준 `.jmx`, 실행 스크립트, 클라우드 분산 운영 기준 |
+| JMeter 실행 러너 컨테이너 | 정적 검증 완료 | 부가 방식으로만 사용, 실제 본시험은 VM 직접 설치와 CLI 실행 우선 |
+| nGrinder 기본 가이드 | 로컬 기동 검증 완료 | Compose, Controller HTTP `200`, Agent 연결 로그까지 확인 |
+| k6 기본 가이드 | NKS Operator 검증 완료 | k6 Operator 설치, CRD 확인, no-op `TestRun`, server dry-run, 적용 스크립트 dry-run 확인 |
 | 보고용 비교 자료 | 준비됨 | `docs/` 문서, Notion 보고 페이지 |
-| 실제 대상 환경값 | 미완료 | URL, 계정, 토큰, 포트, 프로젝트명은 프로젝트별 입력 필요 |
-| 실제 실행 검증 | 미완료 | 이 저장소에서 도구 실행 성공 여부는 아직 환경별 검증 필요 |
-| 운영 모니터링 연동 | 미완료 | WAS, DB, LB, Ingress, APM 연결은 대상별 설정 필요 |
+| 실제 대상 환경값 | 입력 필요 | URL, 계정, 토큰, 포트, 프로젝트명은 프로젝트별 실제 값만 사용 |
+| 실제 대상 부하 실행 | 대상별 수행 | 승인된 대상 URL, 계정, payload, 모니터링 연결 후 smoke부터 수행 |
+| 운영 모니터링 연동 | 환경별 수행 | WAS, DB, LB, Ingress, APM 연결은 대상별 실제 구성 사용 |
+
+## 현재 검증 수준
+
+| 도구 | 완료된 검증 | 남은 검증 |
+| --- | --- | --- |
+| JMeter | 문서, `.jmx`, 실행 스크립트, Docker runner 구성, 하네스 검증 | 실제 클라우드 VM 설치와 분산 smoke |
+| k6 | NKS Operator `4.3.2` 설치, CRD, no-op `TestRun`, server dry-run, 적용 스크립트 dry-run | 실제 대상 API/browser smoke와 본시험 |
+| nGrinder | Docker Desktop Compose 기동, Controller HTTP `200`, Agent 연결 로그 | 클라우드 VM 배포와 Controller UI 기반 smoke |
 
 ## 공통 사전 점검
 
@@ -41,7 +59,7 @@
   - Java 17
   - JMeter 설치 경로
   - `.jmx` 복제본
-  - `HOST`, `PORT`, `THREADS` 같은 실행 파라미터
+  - `HOST`, `PORT`, `THREADS`, `EVENT_PATH` 같은 실행 파라미터
 
 ### nGrinder
 
@@ -60,18 +78,21 @@
 - 최소 준비:
   - `BASE_URL`
   - 사용자 계정 또는 토큰
+  - 핵심 이벤트 API 경로
   - scenario 및 threshold
   - 러너 사양 또는 Kubernetes 리소스
 
 ## 실제 실행 전에 꼭 채워야 하는 값
 
-샘플 자산에는 아래 값이 예시로 들어가 있으므로 실제 프로젝트 전에 반드시 바꿔야 한다.
+실행 자산은 임시 기본값을 사용하지 않는다. 아래 값이 비어 있으면 실행이 실패해야 한다.
 
-- `example.com`
-- `user01`, `pass01`
-- 샘플 프로젝트명, 샘플 경로
-- 기본 thread/VU/ramp-up 수치
-- 샘플 image tag 또는 경로
+- 실제 대상 `BASE_URL` 또는 `HOST`
+- 실제 `HEALTH_PATH`, `LOGIN_PATH`, `LIST_PATH`, `DETAIL_PATH`, `EVENT_PATH`
+- 실제 테스트 계정 또는 토큰
+- 실제 `EVENT_PAYLOAD`
+- 실제 프로젝트명과 결과 저장 경로
+- 실제 thread/VU/ramp-up 수치
+- 고정된 이미지 태그와 도구 버전
 
 ## 기본 완료 기준
 
@@ -95,13 +116,13 @@
 
 ## 현재 판단
 
-현재 저장소는 `기본 준비의 뼈대와 표준 자산`은 갖춰져 있다.
+현재 저장소는 `기본 준비의 뼈대와 표준 자산`을 갖췄고, k6와 nGrinder는 설치 체인 일부를 실제로 검증했다.
 
-다만 아래는 아직 자동으로 해결되지 않는다.
+다만 아래는 자동으로 해결하지 않는다.
 
 - 실제 고객 환경값 주입
-- 실제 인프라 접근성과 네트워크 확인
-- 실제 실행 검증
+- 실제 대상 인프라 접근성과 네트워크 확인
+- 실제 대상 시스템 부하 실행
 - 서버 측 관측 지표 연결
 
-즉, `문서/템플릿/실행 자산은 준비됨`, `프로젝트별 환경 적합화와 1차 smoke 검증은 아직 남음`으로 보는 것이 정확하다.
+즉, `문서/템플릿/실행 자산은 기준에 맞게 구성됨`, `프로젝트별 환경값 주입과 대상 시스템 smoke 검증은 실제 환경에서 수행`으로 보는 것이 정확하다.
