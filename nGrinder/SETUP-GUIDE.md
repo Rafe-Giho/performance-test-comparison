@@ -1,161 +1,218 @@
 # nGrinder 구축 가이드
 
+## 문서 등급
+
+문서 등급: 팀 배포용 표준 운영 가이드
+
+## 운영 환경
+
+운영 환경: 클라우드 기반 테스트 환경
+
+이 문서의 구축, 실행, 검증 기준은 클라우드 기반 테스트 환경을 전제로 한다. 테스트 인프라는 프로젝트별 클라우드 VM, 컨테이너, Kubernetes/NKS 자원으로 구성하고 운영 서비스와 논리적으로 분리한다.
+
 ## 적용 대상
 
-- 즉시 구축이 우선인 단기 프로젝트
-- 웹 UI 기반 테스트 운영이 필요한 경우
-- 이미 보유한 `Controller 1 + Agent 10` Compose 자산을 활용할 수 있는 경우
-- 범용 Compose 템플릿으로 빠르게 동일 구조를 재현해야 하는 경우
+- 단기 프로젝트에서 빠르게 웹 UI 기반 부하 테스트 환경을 올려야 하는 경우
+- `Controller 1 + Agent N` 구조를 Docker Compose로 재현해야 하는 경우
+- 장기 표준 도구가 아니라 한시 운영 도구로 nGrinder를 활용하는 경우
+- 테스트 대상과 같은 클라우드 VPC 안의 private subnet에서 부하를 발생시켜야 하는 경우
 
 ## 공식 기준
 
 - 저장소: <https://github.com/naver/ngrinder>
 - 릴리스: <https://github.com/naver/ngrinder/releases>
 - 설치 가이드: <https://github.com/naver/ngrinder/wiki/Installation-Guide>
-- 아키텍처: <https://github.com/naver/ngrinder/wiki/Architecture>
-- 설치 가이드는 Docker 실행을 직접 언급한다.
+- Agent 설정 가이드: <https://github.com/naver/ngrinder/wiki/Agent-Configuration-Guide>
+- Docker Engine 설치 기준: <https://docs.docker.com/engine/install/ubuntu/>
 
-## 중요한 전제
+운영 기준 버전은 `ngrinder/controller:3.5.9-p1`, `ngrinder/agent:3.5.9-p1`이다. GitHub 기준 `ngrinder-3.5.9-p1-20240613`이 최신 릴리스이며, 저장소는 `2025-09-24` 이후 archive 상태다. archive 상태 도구이므로 인터넷 공개형 상시 플랫폼으로 운영하지 않고 프로젝트 단위 단기 환경으로 제한한다.
 
-- nGrinder 저장소는 archive 상태이므로 장기 표준 도구로 보지 않는다.
-- 이 가이드는 현재 보유 자산을 단기적으로 활용하기 위한 운영 문서다.
+## 사전 조건
 
-## Docker 기반 운영
+- 클라우드 VPC 안에 테스트 전용 VM을 준비한다.
+- Controller VM은 운영자 VPN 또는 bastion에서만 접근 가능해야 한다.
+- Agent는 Controller와 같은 private subnet 또는 라우팅 가능한 테스트 subnet에 둔다.
+- 대상 시스템 부하 테스트 승인 범위, 허용 시간, 허용 TPS, 계정, 데이터가 확정되어 있다.
+- Docker Engine과 Docker Compose plugin이 설치되어 있다.
+- Controller 결과 볼륨 백업 위치와 object storage 보관 정책이 정해져 있다.
+- 보안그룹 또는 방화벽에서 아래 포트를 승인한다.
 
-- 가능: `예`
-- nGrinder는 Controller와 Agent 역할이 분리돼 있어 컨테이너 운영과 궁합이 좋다.
-- 실무에서는 `Controller 1 + Agent N` 구성을 Docker Compose로 올리는 방식이 흔하다.
-- 즉, `nGrinder를 Docker container로 할 수 있나`의 답은 `공식적으로도 예`다.
+| 방향 | 포트 | 허용 주체 | 목적 |
+| --- | --- | --- | --- |
+| 운영자 -> Controller | `8080/tcp` | VPN 또는 bastion CIDR | Controller UI |
+| Agent -> Controller | `16001/tcp` | Agent security group | Agent 제어 채널 |
+| Agent -> Controller | `12000-12009/tcp` | Agent security group | 테스트 실행 콘솔 포트 |
+| Controller -> Monitor | `13243/tcp` | 대상 서버 또는 Monitor subnet | 선택 운영 시 시스템 모니터링 |
+| Agent -> 대상 시스템 | `80/tcp`, `443/tcp` 또는 승인 포트 | Agent security group | 부하 발생 |
+| 운영자 -> VM | `22/tcp` | bastion CIDR | SSH 운영 |
 
-## 표준 토폴로지
+## 설치 Runbook
 
-아래 사양은 `Controller 1개`, `Agent 1개` 기준이다. 전체 환경의 합산 사양이 아니다.
+### 1. 클라우드 VM 준비
 
-### 최소 시작 구성
+권장 시작 사양은 Controller와 Agent를 분리하는 구성이다.
 
-- Controller 1대: `2 vCPU / 4 GB / 50 GB SSD`
-- Agent 2대 이상: 각 `4 vCPU / 8 GB / 50 GB SSD`
+| 규모 | Controller | Agent |
+| --- | --- | --- |
+| Smoke/소규모 | `2 vCPU / 4 GB / 50 GB` | `2대`, 각 `4 vCPU / 8 GB / 50 GB` |
+| 중규모 | `4 vCPU / 8 GB / 100 GB` | `3~5대`, 각 `8 vCPU / 16 GB / 100 GB` |
+| 단일 통합 VM | `8 vCPU / 16 GB` 이상 | Controller와 Agent 동거 |
 
-### 권장 구성
+단일 통합 VM은 빠르게 구축할 수 있지만 Controller와 Agent가 CPU, 메모리, I/O를 공유한다. 결과 해석 시 부하 발생기 병목을 반드시 분리한다.
 
-- Controller 1대: `4 vCPU / 8 GB / 100 GB SSD`
-- Agent 3~5대: 각 `8 vCPU / 16 GB / 100 GB SSD`
+### 2. Ubuntu VM에 Docker 설치
 
-### 대규모 또는 이벤트성 시험
+Ubuntu 22.04/24.04 LTS 기준이다. Docker 공식 apt repository 방식을 사용한다.
 
-- Controller 1대: `4~8 vCPU / 8~16 GB / 100 GB SSD`
-- Agent 4~6대 이상: 각 `8 vCPU / 16 GB / 100 GB SSD`
-- 또는 `16~32 vCore / 32 GB 이상` 단일 고사양 인스턴스 + 필요 시 보조 Agent
+```bash
+sudo apt update
+sudo apt install -y ca-certificates curl
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+sudo tee /etc/apt/sources.list.d/docker.sources >/dev/null <<EOF
+Types: deb
+URIs: https://download.docker.com/linux/ubuntu
+Suites: $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}")
+Components: stable
+Architectures: $(dpkg --print-architecture)
+Signed-By: /etc/apt/keyrings/docker.asc
+EOF
+sudo apt update
+sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo systemctl enable --now docker
+docker version
+docker compose version
+```
 
-## 단일 고사양 인스턴스 통합 운영 해석
+운영 계정으로 Docker를 직접 실행해야 한다면 승인된 운영 VM에서만 아래를 적용한다.
 
-실무에서는 `Controller`와 `Agent`를 별도 인스턴스로 분리하지 않고, 고사양 인스턴스 1대에 함께 올려서 사용하는 경우가 있다. 이 방식 자체는 가능하다.
+```bash
+sudo usermod -aG docker "$USER"
+newgrp docker
+docker version
+```
 
-예를 들어 아래처럼 해석한다.
+### 3. Compose 설정 검증
 
-- 표 기준 최소 합산
-  - Controller 1개: `2 vCPU / 4 GB`
-  - Agent 1개: `4 vCPU / 8 GB`
-  - 합산 최소치: `6 vCPU / 12 GB`
-- 안정적 시작 권장
-  - Controller + Agent 동거 시 `8 vCPU / 16 GB` 이상
-- Agent heap을 크게 주고 장시간 테스트를 돌린다면
-  - `16 vCPU / 32 GB` 이상 단일 인스턴스도 충분히 현실적인 구성이다.
+저장소 루트에서 실행한다.
 
-즉, `16 vCore / 32 GB RAM` 인스턴스 1대에서 `Controller + Agent`를 같이 올려 문제 없이 사용했다면, 그것은 표와 충돌하는 것이 아니라 오히려 `최소 시작 사양보다 훨씬 큰 단일 통합 구성`으로 이해하면 된다.
+```bash
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml config
+```
 
-## 현재 구성 해석 시 주의사항
+Windows 운영 PC 또는 PowerShell이 설치된 VM에서는 동일 검증을 아래처럼 수행할 수 있다.
 
-다음 조건은 별도로 점검해야 한다.
+```powershell
+docker compose -p ngrinder -f .\nGrinder\compose\docker-compose.yml config
+```
 
-- `container_name: ngrinder-agent`
-  - 이 설정이 있으면 동일 서비스 다중 스케일에 제약이 생긴다. 여러 agent를 띄우려면 보통 고정 `container_name`은 제거하는 편이 맞다.
-- `image: latest`
-  - 표준 운영 기준에서는 비권고다. 반드시 태그를 고정한다.
-- `deploy.resources`
-  - Compose 사양에서 `deploy`는 플랫폼 의존적인 항목이다. 로컬 `docker compose up` 환경에서는 기대한 방식으로 강제되지 않을 수 있으므로 실제 적용 여부를 확인해야 한다.
-- CPU/메모리 수치 해석
-  - 작성하신 예시는 주석상 `32 CPU / 32 GB`에 가깝다. 만약 실제 인스턴스가 `16 vCore / 32 GB`였다면 `cpus: '30.0'` 주석과는 맞지 않으므로 현재 운영값을 다시 확인하는 것이 좋다.
+### 4. Controller + Agent 기동
 
-## 현재 운영 예시의 의미
+클라우드 Linux VM에서 직접 실행하는 기본 명령이다.
 
-질문에 제시된 예시는 다음처럼 해석하면 된다.
+```bash
+mkdir -p nGrinder/compose/volumes/controller
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml pull
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml up -d --scale agent=1 --remove-orphans
+```
 
-- `Controller + Agent`를 단일 인스턴스 1대에 함께 올리는 통합 운영 방식
-- 최소 사양을 겨우 맞춘 구성이 아니라, 단일 호스트에 자원을 크게 몰아준 고사양 구성
-- `GRINDER_JVM_OPTS=-Xms20G -Xmx20G`는 Agent heap을 크게 설정해 장시간 테스트나 많은 worker thread를 안정적으로 받기 위한 설정
-- `limits.memory: 24G`는 컨테이너 상한을 둔 것이고, 나머지 메모리는 Controller와 OS, Docker가 사용
+PowerShell wrapper를 사용할 경우 아래를 실행한다.
 
-즉, 아래 조건이라면 현재 구성이 문제 없이 동작한 것은 충분히 자연스럽다.
+```powershell
+powershell -ExecutionPolicy Bypass -File .\nGrinder\compose\up.ps1 -ProjectName ngrinder -AgentScale 1 -Pull
+```
 
-- 실제 호스트가 `32 vCore / 32 GB RAM`급
-- Agent 수가 많지 않거나, Agent 컨테이너를 1개만 크게 운영
-- 테스트 대상이 주로 웹/API 중심
+Agent를 늘릴 때는 먼저 smoke가 성공한 뒤 단계적으로 확장한다.
 
-반대로 아래 경우에는 별도 재검토가 필요하다.
+```bash
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml up -d --scale agent=3 --remove-orphans
+```
 
-- 실제 호스트가 `16 vCore / 32 GB`인데 `cpus: '30.0'`처럼 작성돼 있는 경우
-- Agent를 여러 개로 수평 확장하려는데 `container_name`이 고정된 경우
-- `latest` 이미지 사용으로 버전 재현성이 깨지는 경우
+### 5. 기동 상태 확인
 
-## Compose 기반 구축 원칙
+```bash
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml ps
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml logs --tail=100 controller
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml logs --tail=100 agent
+curl -I http://127.0.0.1:8080
+```
 
-- 기본 자산은 `Controller 1 + Agent 10` 구조를 기준으로 관리한다.
-- 프로젝트 규모에 따라 Agent 수를 줄이거나 늘린다.
-- 운영과 분리된 테스트 전용 네트워크에서 실행한다.
-- 프로젝트별로 새 Compose를 처음부터 만들지 말고 범용 Compose 템플릿을 조정해서 사용한다.
+원격 운영자는 VPN 또는 bastion 경유로 `http://<controller-vm-private-ip>:8080`에 접속한다. Controller UI를 공인 인터넷에 직접 노출하지 않는다.
 
-## 규모별 준비 항목
+## 검증 Runbook
 
-### 소규모
+### 1. 이미지와 버전 검증
 
-- Controller 1 + Agent 1~2
-- 샘플 스크립트 smoke test
-- Agent 승인과 연결 확인
+```bash
+docker image inspect ngrinder/controller:3.5.9-p1 --format '{{.RepoTags}} {{.Id}}'
+docker image inspect ngrinder/agent:3.5.9-p1 --format '{{.RepoTags}} {{.Id}}'
+docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml ps
+```
 
-### 중규모
+### 2. Controller UI 검증
 
-- Agent 2~4
-- 대상 시스템 모니터링 연동
-- 포트 범위와 동시 테스트 수 확인
+```bash
+curl -I http://127.0.0.1:8080
+```
 
-### 대규모
+정상 기준은 HTTP `200`, `302`, 또는 로그인 페이지 응답이다. 브라우저에서는 `admin/admin` 초기 계정으로 접속한 뒤 즉시 비밀번호를 변경한다.
 
-- Agent 4대 이상 또는 단일 고사양 호스트
-- Controller 저장소, 로그, 결과 보관 용량 확인
-- Agent heap, OS ulimit, sysctl 값 조정
+### 3. Agent 연결 검증
 
-## 구축 절차
+- Controller UI의 Agent Management에서 Agent가 연결 상태로 보이는지 확인한다.
+- Compose scale 수와 UI의 Agent 수가 일치하는지 확인한다.
+- Agent가 보이지 않으면 `16001/tcp`, `12000-12009/tcp`, Docker network DNS `controller` 해석 여부를 확인한다.
 
-1. 테스트용 인스턴스 또는 Docker 호스트 준비
-2. `compose/`에 프로젝트별 Compose 파일 배치
-3. Controller 기동
-4. Agent 기동 및 Controller 연결 확인
-5. 계정, 프로젝트, 스크립트 저장소 확인
-6. 샘플 스크립트 smoke test 수행
+### 4. 표준 스크립트 검증
 
-## 네트워크/운영 주의
+- `nGrinder/scripts/web_standard_template.groovy`를 프로젝트 스크립트로 복제한다.
+- `test.baseUrl`, `test.healthPath`, `test.loginPath`, `test.listPath`, `test.detailPath`, `test.eventPath`, `test.eventPayload`, `test.username`, `test.password`를 승인된 실제 값으로 입력한다.
+- Agent 1개, 낮은 vuser, 짧은 duration으로 smoke를 먼저 실행한다.
+- smoke 성공 후에만 Load/Stress/Spike/Soak 실행으로 넘어간다.
 
-- Controller와 Agent 간 포트 정책을 사전에 확인한다.
-- 프로젝트 종료 후 환경 철수 절차를 포함한다.
-- 여러 프로젝트가 동시에 돌면 Controller 사양을 먼저 증설한다.
+### 5. 결과 보관 검증
 
-## 표준 디렉터리 매핑
+```bash
+mkdir -p nGrinder/reports/<project>/<yyyymmdd>
+```
 
-- Compose 파일: `compose/`
-- 테스트 스크립트: `scripts/`
-- 데이터셋: `data/`
-- 결과 리포트: `reports/<project>/<yyyymmdd>/`
+Controller UI 결과 화면, 실행 스크립트 사본, Agent 수, vuser, duration, 대상 시스템 지표를 `nGrinder/reports/<project>/<yyyymmdd>/`에 저장한다. 장기 보관이 필요한 산출물은 object storage 버킷으로 복제한다.
 
-## 템플릿 적용 원칙
+## 보안/네트워크 기준
 
-- Compose 원본은 공통 구조를 유지한다.
-- 프로젝트별 변경은 scale, 볼륨, 포트, 자원 수준에 한정한다.
-- Groovy 스크립트는 baseUrl, path, 계정값만 바꿔서 재사용한다.
+- Controller UI `8080/tcp`는 VPN 또는 bastion CIDR에만 허용한다.
+- Agent 통신 포트 `16001/tcp`, `12000-12009/tcp`는 Agent security group에서만 허용한다.
+- 테스트 계정과 비밀번호는 Groovy 원본 파일에 저장하지 않는다.
+- Controller 볼륨 `nGrinder/compose/volumes/controller`에는 스크립트와 결과가 남으므로 프로젝트 종료 후 보관 또는 폐기한다.
+- Docker가 host firewall을 우회할 수 있으므로 클라우드 보안그룹과 VM 내부 `DOCKER-USER` chain 정책을 함께 확인한다.
+- archive 상태 도구이므로 장기 인터넷 노출, 멀티테넌트 상시 운영, 신규 표준 플랫폼 채택은 금지한다.
+
+## 장애 조치
+
+- Controller UI가 열리지 않으면 `docker compose ps`, `docker compose logs controller`, `8080/tcp` 포트 점유를 확인한다.
+- Agent가 연결되지 않으면 Agent 로그, Controller service DNS, `16001/tcp`, `12000-12009/tcp` 방화벽을 확인한다.
+- Agent scale이 늘지 않으면 고정 `container_name` 또는 공유 Agent home volume이 Compose 파일에 재도입됐는지 확인한다.
+- JVM 메모리 오류가 발생하면 Agent 수, vuser, 컨테이너 메모리, VM 메모리를 함께 줄이거나 증설한다.
+- TPS가 기대보다 낮으면 Agent CPU/메모리 병목과 대상 시스템 병목을 분리한다.
+- 결과 저장이 누락되면 Controller 볼륨 권한과 디스크 사용량을 확인한다.
+
+## 운영 체크리스트
+
+- Controller/Agent 이미지가 `3.5.9-p1`로 고정되어 있다.
+- `docker compose -p ngrinder -f nGrinder/compose/docker-compose.yml config`가 통과한다.
+- Controller UI가 VPN 또는 bastion을 통해서만 접근된다.
+- Agent가 Controller UI에서 연결 상태로 보인다.
+- smoke 테스트 결과가 생성되고 에러율, TPS, 응답시간을 확인했다.
+- 결과를 `reports/<project>/<yyyymmdd>/`와 object storage에 보관했다.
+- 팀 배포 전 루트에서 `powershell -ExecutionPolicy Bypass -File .\tools\validate-workspace.ps1 -Strict`를 실행했다.
 
 ## 구축 완료 기준
 
+- Docker Engine과 Docker Compose plugin 버전 확인 완료
+- `ngrinder/controller:3.5.9-p1`, `ngrinder/agent:3.5.9-p1` 이미지 pull 완료
+- `docker compose -p ngrinder ... up -d --scale agent=1` 기동 완료
 - Controller UI 접속 가능
 - Agent 연결 확인
-- 샘플 테스트 정상 실행
-- 결과 리포트 확인
+- 표준 Groovy smoke 테스트 정상 실행
+- 결과 리포트와 보관 위치 확인

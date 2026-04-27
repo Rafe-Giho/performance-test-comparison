@@ -2,6 +2,7 @@ import static net.grinder.script.Grinder.grinder
 import static org.hamcrest.Matchers.is
 import static org.junit.Assert.assertThat
 
+import groovy.json.JsonSlurper
 import HTTPClient.CookieModule
 import HTTPClient.CookiePolicyHandler
 import HTTPClient.HTTPResponse
@@ -27,13 +28,45 @@ class StandardWebFlow {
             new NVPair("Content-Type", "application/json")
     ] as NVPair[]
 
-    public static String BASE_URL = System.getProperty("test.baseUrl", "https://example.com")
-    public static String HEALTH_PATH = System.getProperty("test.healthPath", "/health")
-    public static String LOGIN_PATH = System.getProperty("test.loginPath", "/api/login")
-    public static String LIST_PATH = System.getProperty("test.listPath", "/api/items")
-    public static String DETAIL_PATH = System.getProperty("test.detailPath", "/api/items/1")
-    public static String USERNAME = System.getProperty("test.username", "user01")
-    public static String PASSWORD = System.getProperty("test.password", "pass01")
+    static String requiredProperty(String name) {
+        String value = System.getProperty(name)
+        if (value == null || value.trim().isEmpty()) {
+            throw new IllegalArgumentException("Required system property is not set: " + name)
+        }
+        return value
+    }
+
+    static String requiredUrlProperty(String name) {
+        String value = requiredProperty(name)
+        if (!(value.startsWith("http://") || value.startsWith("https://"))) {
+            throw new IllegalArgumentException(name + " must start with http:// or https://")
+        }
+        return value.replaceAll("/+\$", "")
+    }
+
+    static String requiredPathProperty(String name) {
+        String value = requiredProperty(name)
+        if (!value.startsWith("/")) {
+            throw new IllegalArgumentException(name + " must start with /")
+        }
+        return value
+    }
+
+    static String requiredJsonProperty(String name) {
+        String value = requiredProperty(name)
+        new JsonSlurper().parseText(value)
+        return value
+    }
+
+    public static String BASE_URL = requiredUrlProperty("test.baseUrl")
+    public static String HEALTH_PATH = requiredPathProperty("test.healthPath")
+    public static String LOGIN_PATH = requiredPathProperty("test.loginPath")
+    public static String LIST_PATH = requiredPathProperty("test.listPath")
+    public static String DETAIL_PATH = requiredPathProperty("test.detailPath")
+    public static String EVENT_PATH = requiredPathProperty("test.eventPath")
+    public static String EVENT_PAYLOAD = requiredJsonProperty("test.eventPayload")
+    public static String USERNAME = requiredProperty("test.username")
+    public static String PASSWORD = requiredProperty("test.password")
 
     @BeforeProcess
     static void beforeProcess() {
@@ -73,6 +106,9 @@ class StandardWebFlow {
         assertThat(response.statusCode, is(200))
 
         response = request.GET(BASE_URL + DETAIL_PATH, headers)
+        assertThat(response.statusCode, is(200))
+
+        response = request.POST(BASE_URL + EVENT_PATH, EVENT_PAYLOAD.getBytes("UTF-8"), headers)
         assertThat(response.statusCode, is(200))
     }
 }
