@@ -1,7 +1,18 @@
 import { browser } from 'k6/browser';
 import { check } from 'k6';
 
-const BASE_URL = __ENV.BASE_URL || 'https://test.k6.io/';
+function requiredUrl(name) {
+  const value = __ENV[name];
+  if (value === undefined || value === null || String(value).trim() === '') {
+    throw new Error(`Required environment variable is not set: ${name}`);
+  }
+  if (!/^https?:\/\//.test(value)) {
+    throw new Error(`${name} must start with http:// or https://`);
+  }
+  return value;
+}
+
+const BASE_URL = requiredUrl('BASE_URL');
 
 export const options = {
   scenarios: {

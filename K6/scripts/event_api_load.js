@@ -1,13 +1,37 @@
 import http from 'k6/http';
 import { check, group, sleep } from 'k6';
 
-const BASE_URL = __ENV.BASE_URL || 'https://example.com';
-const USERNAME = __ENV.USERNAME || 'user01';
-const PASSWORD = __ENV.PASSWORD || 'pass01';
-const HEALTH_PATH = __ENV.HEALTH_PATH || '/health';
-const LOGIN_PATH = __ENV.LOGIN_PATH || '/api/login';
-const LIST_PATH = __ENV.LIST_PATH || '/api/items';
-const DETAIL_PATH = __ENV.DETAIL_PATH || '/api/items/1';
+function requiredEnv(name) {
+  const value = __ENV[name];
+  if (value === undefined || value === null || String(value).trim() === '') {
+    throw new Error(`Required environment variable is not set: ${name}`);
+  }
+  return value;
+}
+
+function requiredUrl(name) {
+  const value = requiredEnv(name);
+  if (!/^https?:\/\//.test(value)) {
+    throw new Error(`${name} must start with http:// or https://`);
+  }
+  return value.replace(/\/+$/, '');
+}
+
+const BASE_URL = requiredUrl('BASE_URL');
+const USERNAME = requiredEnv('USERNAME');
+const PASSWORD = requiredEnv('PASSWORD');
+const HEALTH_PATH = requiredEnv('HEALTH_PATH');
+const LOGIN_PATH = requiredEnv('LOGIN_PATH');
+const LIST_PATH = requiredEnv('LIST_PATH');
+const DETAIL_PATH = requiredEnv('DETAIL_PATH');
+const EVENT_PATH = requiredEnv('EVENT_PATH');
+const EVENT_PAYLOAD = JSON.stringify(JSON.parse(requiredEnv('EVENT_PAYLOAD')));
+const JSON_HEADERS = {
+  headers: {
+    'Content-Type': 'application/json',
+    Accept: 'application/json',
+  },
+};
 
 export const options = {
   thresholds: {
@@ -50,13 +74,7 @@ export default function () {
       username: USERNAME,
       password: PASSWORD,
     });
-    const params = {
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-    };
-    const res = http.post(`${BASE_URL}${LOGIN_PATH}`, payload, params);
+    const res = http.post(`${BASE_URL}${LOGIN_PATH}`, payload, JSON_HEADERS);
     check(res, { 'login is 200': (r) => r.status === 200 });
   });
 
@@ -68,6 +86,11 @@ export default function () {
   group('04-detail', () => {
     const res = http.get(`${BASE_URL}${DETAIL_PATH}`);
     check(res, { 'detail is 200': (r) => r.status === 200 });
+  });
+
+  group('05-event', () => {
+    const res = http.post(`${BASE_URL}${EVENT_PATH}`, EVENT_PAYLOAD, JSON_HEADERS);
+    check(res, { 'event is 200': (r) => r.status === 200 });
   });
 
   sleep(1);
